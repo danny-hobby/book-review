@@ -2,10 +2,11 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 /**
  * @property int $id
@@ -38,12 +39,26 @@ class Book extends Model
         return $builder->where('title', 'LIKE', '%' . $title . '%'); // ->toSql();
     }
 
-    public function scopePopular(Builder $builder, $from = null, $to = null): Builder
+    public function scopeWithReviewsCount(Builder $builder, $from = null, $to = null): Builder
     {
         return $builder
             ->withCount([
                 'reviews' => fn(Builder $b) => $this->dateRangeBuilder($b, $from, $to)
-            ])
+            ]);
+    }
+
+    public function scopeWithAvgRating(Builder $builder, $from = null, $to = null): Builder
+    {
+        return $builder
+            ->withAvg([
+                'reviews' => fn(Builder $b) => $this->dateRangeBuilder($b, $from, $to)
+            ], 'rating');
+    }
+
+    public function scopePopular(Builder $builder, $from = null, $to = null): Builder
+    {
+        return $builder
+            ->withReviewsCount()
             ->orderBy('reviews_count', 'desc');
     }
 
@@ -66,9 +81,7 @@ class Book extends Model
     public function scopeHighestRated(Builder $builder, $from = null, $to = null): Builder
     {
         return $builder
-            ->withAvg([
-                'reviews' => fn(Builder $b) => $this->dateRangeBuilder($b, $from, $to)
-            ], 'rating')
+            ->withAvgRating()
             ->orderBy('reviews_avg_rating', 'desc');
     }
 
@@ -86,6 +99,17 @@ class Book extends Model
             ->highestRated(now()->subMonths(6), now())
             ->popular(now()->subMonths(6), now())
             ->minReviews(5);
+    }
+
+    private function dateRangeBuilder(Builder $builder, $from = null, $to = null)
+    {
+        if ($from && !$to) {
+            $builder->where('created_at', '>=', $from);
+        } elseif (!$from && $to) {
+            $builder->where('created_at', '<=', $to);
+        } elseif ($from && $to) {
+            $builder->whereBetween('created_at', [$from, $to]);
+        }
     }
 
     public function scopeMinReviews(Builder $builder, int $min_reviews): Builder
@@ -107,14 +131,10 @@ class Book extends Model
             );
     }
 
-    private function dateRangeBuilder(Builder $builder, $from = null, $to = null)
+
+    protected static function booted()
     {
-        if ($from && !$to) {
-            $builder->where('created_at', '>=', $from);
-        } elseif (!$from && $to) {
-            $builder->where('created_at', '<=', $to);
-        } elseif ($from && $to) {
-            $builder->whereBetween('created_at', [$from, $to]);
-        }
+        static::updated(fn(Book $book) => Cache::forget('book:' . $book->id));
+        static::deleted(fn(Book $book) => Cache::forget('book:' . $book->id));
     }
 }

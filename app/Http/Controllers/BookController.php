@@ -27,68 +27,40 @@ class BookController extends Controller
             'popular_last_6months' => $books->popularLastSixMonths(),
             'highest_rated_last_month' => $books->highestRatedLastMonth(),
             'highest_rated_last_6months' => $books->highestRatedLastSixMonths(),
-            default => $books->latest()
+            default => $books->latest()->withAvgRating()->withReviewsCount()
         };
 
-        $cache_key = 'books:' . $filter . ':' . $title;
+        $page = $request->has('page') ? $request->query('page') : 1;
+        $cache_key = 'books:' . $page . ':' . $filter . ':' . $title;
 
-        $books = Cache::remember($cache_key, 3600, fn() => $books->get());
+        $books = Cache::remember($cache_key, 3600, fn() => $books->paginate());
 
         return view('books.index', ['books' => $books]);
     }
 
     /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
-    {
-        //
-    }
-
-    /**
      * Display the specified resource.
      */
-    public function show(Book $book)
+    public function show(int $id)
     {
+        $cache_key = 'book:' . $id;
 
-        return view(
-            'books.show',
-            [
-                'book' => $book->load([
-                    'reviews' => fn($query) => $query->latest()
-                ])
-            ]
+        $book = Cache::remember(
+            $cache_key,
+            3600,
+            fn() =>
+            Book::with([
+                'reviews' => fn($query) => $query->latest()
+            ])
+                ->withAvgRating()
+                ->withReviewsCount()
+                ->findOrFail($id)
         );
-    }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
-    {
-    }
+        $reviews = Cache::remember($cache_key . ':page:' . request('page', 1), 3600, function () use ($book) {
+            return $book->reviews()->latest()->paginate(5);
+        });
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
-    {
-        //
+        return view('books.show', ['book' => $book, 'reviews' => $reviews]);
     }
 }
