@@ -40,18 +40,52 @@ class Book extends Model
 
     public function scopePopular(Builder $builder, $from = null, $to = null): Builder
     {
-        return $builder->withCount([
-            'reviews' => fn(Builder $b) => $this->dateRangeBuilder($b, $from, $to)
-        ])
+        return $builder
+            ->withCount([
+                'reviews' => fn(Builder $b) => $this->dateRangeBuilder($b, $from, $to)
+            ])
             ->orderBy('reviews_count', 'desc');
+    }
+
+    public function scopePopularLastMonth(Builder $builder): Builder
+    {
+        return $builder
+            ->popular(now()->subMonth(), now())
+            ->highestRated(now()->subMonth(), now())
+            ->minReviews(2);
+    }
+
+    public function scopePopularLastSixMonths(Builder $builder): Builder
+    {
+        return $builder
+            ->popular(now()->subMonths(6), now())
+            ->highestRated(now()->subMonths(6), now())
+            ->minReviews(5);
     }
 
     public function scopeHighestRated(Builder $builder, $from = null, $to = null): Builder
     {
-        return $builder->withAvg([
-            'reviews' => fn(Builder $b) => $this->dateRangeBuilder($b, $from, $to)
-        ], 'rating')
+        return $builder
+            ->withAvg([
+                'reviews' => fn(Builder $b) => $this->dateRangeBuilder($b, $from, $to)
+            ], 'rating')
             ->orderBy('reviews_avg_rating', 'desc');
+    }
+
+    public function scopeHighestRatedLastMonth(Builder $builder): Builder
+    {
+        return $builder
+            ->highestRated(now()->subMonth(), now())
+            ->popular(now()->subMonth(), now())
+            ->minReviews(2);
+    }
+
+    public function scopeHighestRatedLastSixMonths(Builder $builder): Builder
+    {
+        return $builder
+            ->highestRated(now()->subMonths(6), now())
+            ->popular(now()->subMonths(6), now())
+            ->minReviews(5);
     }
 
     public function scopeMinReviews(Builder $builder, int $min_reviews): Builder
@@ -61,15 +95,16 @@ class Book extends Model
 
     public function scopeWithRecentReviews(Builder $builder, \Closure $interval): Builder
     {
-        return $builder->whereHas(
-            'reviews',
-            function (Builder $q) use ($interval) {
-                $q->whereBetween(
-                    'created_at',
-                    [$interval(now()), now()]
-                );
-            }
-        );
+        return $builder
+            ->whereHas(
+                'reviews',
+                function (Builder $q) use ($interval) {
+                    $q->whereBetween(
+                        'created_at',
+                        [$interval(now()), now()]
+                    );
+                }
+            );
     }
 
     private function dateRangeBuilder(Builder $builder, $from = null, $to = null)
