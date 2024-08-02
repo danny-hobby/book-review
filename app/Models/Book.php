@@ -7,6 +7,23 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property int $id
+ * @property string $title
+ * @property string $author
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property int|null $reviews_count
+ *
+ * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\Review[] $reviews
+ *
+ * @method static \Illuminate\Database\Eloquent\Builder|\App\Models\Book title(string $title)
+ * @method static \Illuminate\Database\Eloquent\Builder|\App\Models\Book popular($from = null, $to = null)
+ * @method static \Illuminate\Database\Eloquent\Builder|\App\Models\Book highestRated($from = null, $to = null)
+ * @method static \Illuminate\Database\Eloquent\Builder|\App\Models\Book minReviews(int $min_reviews)
+ * @method static \Illuminate\Database\Eloquent\Builder|\App\Models\Book withRecentReviews(\Closure $interval)
+ * @method static \Database\Factories\BookFactory<self> factory($count = null, $state = [])
+ */
 class Book extends Model
 {
     use HasFactory;
